@@ -4,30 +4,39 @@ use axum::{
     response::IntoResponse,
     Json,
 };
+use sqlx::{postgres::PgRow, PgPool, Row};
 use uuid::Uuid;
 
-use crate::{db, models, schema};
+use crate::{
+    db::{Store, StoreType},
+    models::{self, Todo},
+    schema,
+};
 
-pub(crate) async fn todos_index(
+pub(crate) async fn todos_index<S: Store<PgPool>>(
     pagination: Option<Query<schema::Pagination>>,
-    State(db): State<db::Db>,
+    State(db): State<StoreType<S>>,
 ) -> impl IntoResponse {
     let todos = db.read().unwrap();
-
     let Query(pagination) = pagination.unwrap_or_default();
 
-    let todos = todos
-        .values()
-        .skip(pagination.offset.unwrap_or(0))
-        .take(pagination.limit.unwrap_or(usize::MAX))
-        .cloned()
-        .collect::<Vec<_>>();
+    let todos: Vec<Todo> = sqlx::query("SELECT * FROM todo_list LIMIT $1 OFFSET $2")
+        .bind(pagination.limit.unwrap_or(usize::MAX))
+        .bind(pagination.offset.unwrap_or(0))
+        .map(|row: PgRow| Todo {
+            id: row.get("id"),
+            text: row.get("text"),
+            completed: row.get("completed"),
+        })
+        .fetch_all(todos.connection())
+        .await
+        .unwrap();
 
     Json(todos)
 }
 
-pub(crate) async fn todos_create(
-    State(db): State<db::Db>,
+pub(crate) async fn todos_create<S: Store<PgPool>>(
+    State(db): State<StoreType<S>>,
     Json(input): Json<schema::CreateTodo>,
 ) -> impl IntoResponse {
     let todo = models::Todo {
@@ -41,9 +50,9 @@ pub(crate) async fn todos_create(
     (StatusCode::CREATED, Json(todo))
 }
 
-pub(crate) async fn todos_update(
+pub(crate) async fn todos_update<S: Store<PgPool>>(
     Path(id): Path<Uuid>,
-    State(db): State<db::Db>,
+    State(db): State<StoreType<S>>,
     Json(input): Json<schema::UpdateTodo>,
 ) -> Result<impl IntoResponse, StatusCode> {
     let mut todo = db
@@ -66,9 +75,9 @@ pub(crate) async fn todos_update(
     Ok(Json(todo))
 }
 
-pub(crate) async fn todos_delete(
+pub(crate) async fn todos_delete<S: Store<PgPool>>(
     Path(id): Path<Uuid>,
-    State(db): State<db::Db>,
+    State(db): State<StoreType<S>>,
 ) -> impl IntoResponse {
     if db.write().unwrap().remove(&id).is_some() {
         StatusCode::NO_CONTENT
