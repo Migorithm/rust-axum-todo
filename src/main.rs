@@ -8,10 +8,15 @@ use axum::{
     routing::{get, patch},
     Router,
 };
-use std::time::Duration;
+use std::{
+    sync::{Arc, RwLock},
+    time::Duration,
+};
 use tower::{BoxError, ServiceBuilder};
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
+use crate::db::Store;
 
 #[tokio::main]
 async fn main() {
@@ -23,7 +28,11 @@ async fn main() {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let db = db::Db::default();
+    let db = Arc::new(RwLock::new(
+        db::PostgresStore::new("postgres://localhost:5432/rust_todo")
+            .await
+            .expect("This Must Not Be Failed!"),
+    ));
 
     // Compose the routes
     let app = Router::new()
@@ -52,7 +61,7 @@ async fn main() {
                 .layer(TraceLayer::new_for_http())
                 .into_inner(),
         )
-        .with_state(db);
+        .with_state(db.clone());
 
     tracing::debug!("listening...");
     axum::Server::bind(&"127.0.0.1:3000".parse().unwrap())
