@@ -58,30 +58,31 @@ pub(crate) async fn todos_create<S: Store<Pool = PgPool>>(
     (StatusCode::CREATED, Json(todo))
 }
 
-// pub(crate) async fn todos_update<S: Store<Pool = PgPool>>(
-//     Path(id): Path<Uuid>,
-//     State(db): State<StoreType<S>>,
-//     Json(input): Json<schema::UpdateTodo>,
-// ) -> Result<impl IntoResponse, StatusCode> {
-//     let mut todo = db
-//         .read()
-//         .unwrap()
-//         .get(&id)
-//         .cloned()
-//         .ok_or(StatusCode::NOT_FOUND)?;
+pub(crate) async fn todos_update<S: Store<Pool = PgPool>>(
+    Path(id): Path<Uuid>,
+    State(db): State<StoreType<S>>,
+    Json(input): Json<schema::UpdateTodo>,
+) -> Result<impl IntoResponse, StatusCode> {
+    let store = db.read().await;
 
-//     if let Some(text) = input.text {
-//         todo.text = text;
-//     }
+    let todo: Todo = match sqlx::query_as!(
+        Todo,
+        "UPDATE todo_list SET text = $1 WHERE id = $2 RETURNING *",
+        input.text.unwrap(),
+        id
+    )
+    .fetch_one(store.connection())
+    .await
+    {
+        Ok(val) => val,
+        Err(err) => {
+            dbg!(err);
+            panic!("What happened?!")
+        }
+    };
 
-//     if let Some(completed) = input.completed {
-//         todo.completed = completed;
-//     }
-
-//     db.write().unwrap().insert(todo.id, todo.clone());
-
-//     Ok(Json(todo))
-// }
+    Ok(Json(todo))
+}
 
 // pub(crate) async fn todos_delete<S: Store<Pool = PgPool>>(
 //     Path(id): Path<Uuid>,
