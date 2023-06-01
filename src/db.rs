@@ -1,21 +1,25 @@
-use std::sync::{Arc, RwLock};
-
 use async_trait::async_trait;
 use sqlx::postgres::{PgPool, PgPoolOptions};
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 #[async_trait]
-pub trait Store<T: Sized + Send + Sync>: Sized {
+pub trait Store: Sized + Sync + Send {
+    type Pool;
+
     async fn new(db_url: &str) -> Result<Self, sqlx::Error>;
-    fn connection(&self) -> &T;
+    fn connection(&self) -> &Self::Pool;
 }
 
 #[derive(Debug, Clone)]
-pub struct PostgresStore<T> {
-    pub connection: T,
+pub struct PostgresStore {
+    pub connection: PgPool,
 }
 
 #[async_trait]
-impl<T: Sized + Send + Sync> Store<T> for PostgresStore<T> {
+impl Store for PostgresStore {
+    type Pool = PgPool;
+
     async fn new(db_url: &str) -> Result<Self, sqlx::Error> {
         let db_pool = PgPoolOptions::new()
             .max_connections(30)
@@ -27,7 +31,7 @@ impl<T: Sized + Send + Sync> Store<T> for PostgresStore<T> {
             connection: db_pool,
         })
     }
-    fn connection(&self) -> &P {
+    fn connection(&self) -> &Self::Pool {
         &self.connection
     }
 }

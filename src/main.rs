@@ -8,15 +8,14 @@ use axum::{
     routing::{get, patch},
     Router,
 };
-use std::{
-    sync::{Arc, RwLock},
-    time::Duration,
-};
+use sqlx::PgPool;
+use std::{sync::Arc, time::Duration};
+use tokio::sync::RwLock;
 use tower::{BoxError, ServiceBuilder};
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use crate::db::Store;
+use crate::db::{PostgresStore, Store, StoreType};
 
 #[tokio::main]
 async fn main() {
@@ -29,10 +28,11 @@ async fn main() {
         .init();
 
     let db = Arc::new(RwLock::new(
-        db::PostgresStore::new("postgres://localhost:5432/rust_todo")
+        db::PostgresStore::new("postgres://migo:abc123@localhost:5433/rust-todo")
             .await
             .expect("This Must Not Be Failed!"),
     ));
+    println!("Db Connected!");
 
     // Compose the routes
     let app = Router::new()
@@ -40,10 +40,10 @@ async fn main() {
             "/todos",
             get(handlers::todos_index).post(handlers::todos_create),
         )
-        .route(
-            "/todos/:id",
-            patch(handlers::todos_update).delete(handlers::todos_delete),
-        )
+        // .route(
+        //     "/todos/:id",
+        //     patch(handlers::todos_update).delete(handlers::todos_delete),
+        // )
         // Add middleware to all routes
         .layer(
             ServiceBuilder::new()

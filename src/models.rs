@@ -7,3 +7,8 @@ pub(crate) struct Todo {
     pub(crate) text: String,
     pub(crate) completed: bool,
 }
+
+#[derive(Debug, Serialize)]
+pub(crate) struct TodoId {
+    pub(crate) id: Uuid,
+}

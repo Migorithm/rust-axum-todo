@@ -2,8 +2,8 @@ use serde::Deserialize;
 
 #[derive(Debug, Deserialize, Default)]
 pub struct Pagination {
-    pub offset: Option<usize>,
-    pub limit: Option<usize>,
+    pub offset: Option<i32>,
+    pub limit: Option<i32>,
 }
 
 #[derive(Debug, Deserialize)]
