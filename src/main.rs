@@ -21,7 +21,6 @@ use crate::db::{PostgresStore, Store, StoreType};
 async fn main() {
     dotenv::dotenv().expect("Unable to load environment variables from .env file");
 
-
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -29,7 +28,7 @@ async fn main() {
         )
         .with(tracing_subscriber::fmt::layer())
         .init();
-    
+
     let conn_url = std::env::var("DATABASE_URL").expect("Unable to read DATABASE_URL env var");
 
     let db = Arc::new(RwLock::new(

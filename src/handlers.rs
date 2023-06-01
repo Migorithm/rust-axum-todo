@@ -9,10 +9,9 @@ use uuid::Uuid;
 
 use crate::{
     db::{Store, StoreType},
-    models::{self, Todo, TodoId},
+    models::{self, Todo},
     schema,
 };
-
 
 pub(crate) async fn todos_index<S: Store<Pool = PgPool>>(
     pagination: Option<Query<schema::Pagination>>,
@@ -26,15 +25,13 @@ pub(crate) async fn todos_index<S: Store<Pool = PgPool>>(
         "SELECT * FROM todo_list LIMIT $1 OFFSET $2",
         pagination.limit.unwrap_or(i64::MAX),
         pagination.offset.unwrap_or(0)
-        )
-        
-        .fetch_all(store.connection())
-        .await
-        .unwrap();
+    )
+    .fetch_all(store.connection())
+    .await
+    .unwrap();
 
     Json(todos)
 }
-
 
 pub(crate) async fn todos_create<S: Store<Pool = PgPool>>(
     State(db): State<StoreType<S>>,
@@ -42,20 +39,23 @@ pub(crate) async fn todos_create<S: Store<Pool = PgPool>>(
 ) -> impl IntoResponse {
     let store = db.read().await;
 
-    
-    let todo_id: TodoId = match sqlx::query("INSERT INTO todo_list (text,completed,something) VALUES ($1, $2) RETURNING id")
-            .bind(input.text)
-            .bind(false)
-            .map(|row: PgRow| TodoId { id: row.get("id") })
-            .fetch_one(store.connection())
-            .await
-            {
-                Ok(val) => val,
-                Err(err) =>  {dbg!(err);panic!("Whathappen?")}
-                
-            };
+    let todo: Todo = match sqlx::query_as!(
+        Todo,
+        "INSERT INTO todo_list (text,completed) VALUES ($1, $2) RETURNING *",
+        input.text,
+        false
+    )
+    .fetch_one(store.connection())
+    .await
+    {
+        Ok(val) => val,
+        Err(err) => {
+            dbg!(err);
+            panic!("Whathappen?")
+        }
+    };
 
-    (StatusCode::CREATED, Json(todo_id))
+    (StatusCode::CREATED, Json(todo))
 }
 
 // pub(crate) async fn todos_update<S: Store<Pool = PgPool>>(
