@@ -8,10 +8,10 @@ migration:
 	$(EXPORT) && sqlx migrate add -r ${title}
 
 upgrade:
-	$(EXPORT) && sqlx migrate run --database-url postgresql://localhost:5432/rustweb
+	$(EXPORT) && sqlx migrate run --database-url postgresql://migo:abc123@localhost:5433/rust-todo
 
 downgrade:
-	$(EXPORT) && sqlx migrate revert --database-url postgresql://localhost:5432/rustweb
+	$(EXPORT) && sqlx migrate revert --database-url postgresql://migo:abc123@localhost:5433/rust-todo
 
 
 test:
@@ -21,3 +21,7 @@ test:
 checks:
 	$(EXPORT) && cargo fmt
 	$(EXPORT) && cargo clippy
+
+prepare:
+	$(EXPORT) && DATABASE_URL='postgres://migo:abc123@localhost:5433/rust-todo' cargo sqlx prepare
+	
