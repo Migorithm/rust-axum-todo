@@ -8,14 +8,13 @@ use axum::{
     routing::{get, patch},
     Router,
 };
-use sqlx::PgPool;
 use std::{sync::Arc, time::Duration};
 use tokio::sync::RwLock;
 use tower::{BoxError, ServiceBuilder};
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use crate::db::{PostgresStore, Store, StoreType};
+use crate::db::Store;
 
 #[tokio::main]
 async fn main() {
@@ -44,10 +43,10 @@ async fn main() {
             "/todos",
             get(handlers::todos_index).post(handlers::todos_create),
         )
-        // .route(
-        //     "/todos/:id",
-        //     patch(handlers::todos_update).delete(handlers::todos_delete),
-        // )
+        .route(
+            "/todos/:id",
+            patch(handlers::todos_update).delete(handlers::todos_delete),
+        )
         // Add middleware to all routes
         .layer(
             ServiceBuilder::new()

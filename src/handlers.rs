@@ -4,12 +4,12 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use sqlx::{postgres::PgRow, PgPool, Row};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
     db::{Store, StoreType},
-    models::{self, Todo},
+    models::Todo,
     schema,
 };
 
@@ -65,32 +65,41 @@ pub(crate) async fn todos_update<S: Store<Pool = PgPool>>(
 ) -> Result<impl IntoResponse, StatusCode> {
     let store = db.read().await;
 
-    let todo: Todo = match sqlx::query_as!(
+    let mut todo = sqlx::query_as!(Todo, "SELECT * FROM todo_list WHERE id = $1", id)
+        .fetch_one(store.connection())
+        .await
+        .unwrap();
+
+    if let Some(t) = input.text {
+        todo.text = t;
+    }
+    if let Some(c) = input.completed {
+        todo.completed = c;
+    }
+    println!("UPDATE QUERY ON ID: {}", id);
+    let todo = sqlx::query_as!(
         Todo,
-        "UPDATE todo_list SET text = $1 WHERE id = $2 RETURNING *",
-        input.text.unwrap(),
-        id
+        "UPDATE todo_list SET text = $1, completed = $2 WHERE id = $3 RETURNING *",
+        todo.text,
+        todo.completed,
+        todo.id
     )
     .fetch_one(store.connection())
     .await
-    {
-        Ok(val) => val,
-        Err(err) => {
-            dbg!(err);
-            panic!("What happened?!")
-        }
-    };
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    Ok(Json(todo))
+    Ok((StatusCode::ACCEPTED, Json(todo)))
 }
 
-// pub(crate) async fn todos_delete<S: Store<Pool = PgPool>>(
-//     Path(id): Path<Uuid>,
-//     State(db): State<StoreType<S>>,
-// ) -> impl IntoResponse {
-//     if db.write().unwrap().remove(&id).is_some() {
-//         StatusCode::NO_CONTENT
-//     } else {
-//         StatusCode::NOT_FOUND
-//     }
-// }
+pub(crate) async fn todos_delete<S: Store<Pool = PgPool>>(
+    Path(id): Path<Uuid>,
+    State(db): State<StoreType<S>>,
+) -> impl IntoResponse {
+    let store = db.read().await;
+    sqlx::query_as!(Todo, "DELETE FROM todo_list where id =$1", id)
+        .execute(store.connection())
+        .await
+        .unwrap();
+
+    StatusCode::ACCEPTED
+}
